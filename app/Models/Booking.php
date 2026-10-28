@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Faker\Provider\ar_EG\Payment;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -29,7 +28,11 @@ class Booking extends Model
     }
 
     public function payments(){
-        return $this->hasMany(Payment::class);
+        return $this->hasMany(Payments::class, 'booking_id');
+    }
+
+    public function review(){
+        return $this->hasOne(Review::class);
     }
 
     
