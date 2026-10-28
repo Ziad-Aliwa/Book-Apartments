@@ -12,18 +12,42 @@
                 <li class="breadcrumb-item active" aria-current="page">{{ $apartment->title }}</li>
             </ol>
         </nav>
-        <div>
+        <div class="d-flex align-items-center gap-2">
+            @auth
+                <!-- Wishlist Toggle -->
+                <button type="button" class="btn btn-sm btn-outline-danger {{ $apartment->isFavoritedBy(Auth::user()) ? 'active' : '' }}"
+                        onclick="toggleWishlist({{ $apartment->id }}, this)">
+                    <i class="bi {{ $apartment->isFavoritedBy(Auth::user()) ? 'bi-heart-fill text-danger' : 'bi-heart' }} me-1"></i>
+                    <span>Save</span>
+                </button>
+
+                <!-- Contact Host -->
+                @if(Auth::id() !== $apartment->user_id)
+                    <form action="{{ route('messages.start', $apartment->id) }}" method="POST" class="d-inline">
+                        @csrf
+                        <button type="submit" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-chat-dots me-1"></i>Contact Host
+                        </button>
+                    </form>
+                @endif
+            @endauth
+
+            <!-- iCal Sync -->
+            <a href="{{ route('apartments.calendar_ics', $apartment->id) }}" class="btn btn-sm btn-outline-secondary" title="Export calendar to Google Calendar or Apple iCal">
+                <i class="bi bi-calendar-event me-1"></i>Sync iCal
+            </a>
+
             @can('update', $apartment)
-                <a href="{{ route('apartments.edit', $apartment->id) }}" class="btn btn-sm btn-outline-warning me-1">
-                    <i class="bi bi-pencil-square me-1"></i>Edit Listing
+                <a href="{{ route('apartments.edit', $apartment->id) }}" class="btn btn-sm btn-outline-warning">
+                    <i class="bi bi-pencil-square me-1"></i>Edit
                 </a>
             @endcan
             @can('delete', $apartment)
-                <form action="{{ route('apartments.destroy', $apartment->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this apartment listing?')">
+                <form action="{{ route('apartments.destroy', $apartment->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Delete this listing permanently?')">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="btn btn-sm btn-outline-danger">
-                        <i class="bi bi-trash me-1"></i>Delete
+                        <i class="bi bi-trash"></i>
                     </button>
                 </form>
             @endcan
@@ -33,7 +57,7 @@
     <!-- Title & Rating Header -->
     <div class="mb-3">
         <h2 class="fw-bold mb-1">{{ $apartment->title }}</h2>
-        <div class="d-flex align-items-center gap-3 text-muted">
+        <div class="d-flex flex-wrap align-items-center gap-3 text-muted">
             <span><i class="bi bi-geo-alt-fill text-danger me-1"></i>{{ $apartment->address }}</span>
             <span>&bull;</span>
             <span>
@@ -42,7 +66,7 @@
                 ({{ $apartment->reviews_count }} {{ Str::plural('review', $apartment->reviews_count) }})
             </span>
             <span>&bull;</span>
-            <span>Hosted by <strong>{{ $apartment->user->name }}</strong></span>
+            <span>Host: <strong>{{ $apartment->user->name }}</strong></span>
         </div>
     </div>
 
@@ -77,13 +101,69 @@
     <div class="row g-4">
         <!-- Main Details & Reviews (Col-8) -->
         <div class="col-lg-8">
-            <!-- Details Card -->
+            <!-- Property Highlights & Capacity -->
             <div class="card shadow-sm border-0 mb-4 p-4 rounded-3 bg-white">
+                <div class="d-flex flex-wrap gap-4 pb-3 border-bottom mb-3 text-secondary">
+                    <div><i class="bi bi-people-fill text-primary fs-5 me-2"></i>Up to <strong>{{ $apartment->max_guests }} Guests</strong></div>
+                    <div><i class="bi bi-door-closed-fill text-primary fs-5 me-2"></i><strong>{{ $apartment->bedrooms }} Bedrooms</strong></div>
+                    <div><i class="bi bi-droplet-fill text-primary fs-5 me-2"></i><strong>{{ $apartment->bathrooms }} Bathrooms</strong></div>
+                </div>
+
+                <!-- Long stay discounts banner -->
+                @if($apartment->weekly_discount > 0 || $apartment->monthly_discount > 0)
+                    <div class="alert alert-success d-flex align-items-center gap-2 mb-4 py-2">
+                        <i class="bi bi-tag-fill fs-5"></i>
+                        <div>
+                            <strong>Long-stay special deals:</strong>
+                            @if($apartment->weekly_discount > 0)
+                                <span class="badge bg-success me-1">{{ $apartment->weekly_discount }}% off for 7+ nights</span>
+                            @endif
+                            @if($apartment->monthly_discount > 0)
+                                <span class="badge bg-success">{{ $apartment->monthly_discount }}% off for 28+ nights</span>
+                            @endif
+                        </div>
+                    </div>
+                @endif
+
                 <h4 class="fw-bold mb-3">About this apartment</h4>
                 <p class="lead fs-6 text-secondary" style="white-space: pre-line;">{{ $apartment->description ?? 'No description provided.' }}</p>
 
                 <hr class="my-4">
 
+                <!-- Amenities Section -->
+                <h5 class="fw-bold mb-3"><i class="bi bi-stars text-warning me-2"></i>What this place offers</h5>
+                @php
+                    $amenityIcons = [
+                        'wifi' => ['label' => 'Fast Wi-Fi', 'icon' => 'bi-wifi'],
+                        'ac' => ['label' => 'Air Conditioning', 'icon' => 'bi-snow'],
+                        'kitchen' => ['label' => 'Equipped Kitchen', 'icon' => 'bi-cup-hot'],
+                        'parking' => ['label' => 'Free Parking', 'icon' => 'bi-car-front'],
+                        'pool' => ['label' => 'Swimming Pool', 'icon' => 'bi-water'],
+                        'tv' => ['label' => 'Smart TV', 'icon' => 'bi-tv'],
+                        'elevator' => ['label' => 'Elevator in building', 'icon' => 'bi-arrow-down-up'],
+                        'workspace' => ['label' => 'Dedicated Workspace', 'icon' => 'bi-laptop'],
+                        'washing_machine' => ['label' => 'Washing Machine', 'icon' => 'bi-basket'],
+                    ];
+                @endphp
+
+                @if(!empty($apartment->amenities) && count($apartment->amenities) > 0)
+                    <div class="row row-cols-2 g-3 mb-3">
+                        @foreach($apartment->amenities as $item)
+                            <div class="col">
+                                <div class="d-flex align-items-center gap-2 text-dark">
+                                    <i class="bi {{ $amenityIcons[$item]['icon'] ?? 'bi-check2-circle' }} fs-5 text-primary"></i>
+                                    <span>{{ $amenityIcons[$item]['label'] ?? ucfirst($item) }}</span>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-muted small">Standard basic home amenities included.</p>
+                @endif
+
+                <hr class="my-4">
+
+                <!-- Availability Window -->
                 <div class="row g-3">
                     <div class="col-sm-6">
                         <div class="d-flex align-items-center gap-3">
@@ -108,6 +188,13 @@
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Location Map Section -->
+            <div class="card shadow-sm border-0 mb-4 p-4 rounded-3 bg-white">
+                <h4 class="fw-bold mb-2"><i class="bi bi-geo-alt-fill text-danger me-2"></i>Location & Neighborhood</h4>
+                <p class="text-muted small mb-3">{{ $apartment->address }}</p>
+                <div id="apartmentMap" class="map-container"></div>
             </div>
 
             <!-- Reviews Section -->
@@ -205,7 +292,7 @@
                                 <input type="hidden" name="start_date" id="start_date">
                                 <input type="hidden" name="end_date" id="end_date">
                                 <small class="text-muted d-block mt-1">
-                                    <i class="bi bi-shield-lock me-1"></i>Disabled dates are already booked
+                                    <i class="bi bi-shield-lock me-1"></i>Dates in gray are already booked
                                 </small>
                             </div>
 
@@ -214,6 +301,10 @@
                                 <div class="d-flex justify-content-between small text-muted mb-1">
                                     <span>${{ number_format($apartment->price_per_night, 2) }} &times; <span id="numDays">0</span> nights</span>
                                     <span>$<span id="subTotal">0.00</span></span>
+                                </div>
+                                <div id="discountRow" class="d-flex justify-content-between small text-success mb-1" style="display: none;">
+                                    <span>Stay Discount (<span id="discountPercent">0</span>%)</span>
+                                    <span>-$<span id="discountAmount">0.00</span></span>
                                 </div>
                                 <hr class="my-2">
                                 <div class="d-flex justify-content-between fw-bold text-dark fs-6">
@@ -243,8 +334,11 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        // Flatpickr & Pricing
         const bookedRanges = @json($bookedRanges);
         const pricePerNight = {{ $apartment->price_per_night }};
+        const weeklyDiscount = {{ $apartment->weekly_discount ?? 0 }};
+        const monthlyDiscount = {{ $apartment->monthly_discount ?? 0 }};
         const minAvailableDate = "{{ $apartment->available_from }}";
         const maxAvailableDate = "{{ $apartment->available_to }}";
 
@@ -274,11 +368,32 @@
                         // Calculate days & total
                         const diffTime = Math.abs(selectedDates[1] - selectedDates[0]);
                         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-                        const total = (diffDays * pricePerNight).toFixed(2);
+                        const subtotal = diffDays * pricePerNight;
+
+                        // Calculate discounts
+                        let discountPercent = 0;
+                        if (diffDays >= 28 && monthlyDiscount > 0) {
+                            discountPercent = monthlyDiscount;
+                        } else if (diffDays >= 7 && weeklyDiscount > 0) {
+                            discountPercent = weeklyDiscount;
+                        }
+
+                        const discountAmount = (subtotal * discountPercent) / 100;
+                        const finalTotal = Math.max(0, subtotal - discountAmount);
 
                         document.getElementById('numDays').textContent = diffDays;
-                        document.getElementById('subTotal').textContent = total;
-                        document.getElementById('finalTotal').textContent = total;
+                        document.getElementById('subTotal').textContent = subtotal.toFixed(2);
+
+                        const discountRow = document.getElementById('discountRow');
+                        if (discountPercent > 0) {
+                            document.getElementById('discountPercent').textContent = discountPercent;
+                            document.getElementById('discountAmount').textContent = discountAmount.toFixed(2);
+                            discountRow.style.display = 'flex';
+                        } else {
+                            discountRow.style.display = 'none';
+                        }
+
+                        document.getElementById('finalTotal').textContent = finalTotal.toFixed(2);
 
                         document.getElementById('costSummary').style.display = 'block';
                         document.getElementById('reserveBtn').disabled = false;
@@ -289,6 +404,20 @@
                 }
             });
         }
+
+        // Leaflet Interactive Map
+        const lat = {{ $apartment->latitude ?? 30.0444 }};
+        const lng = {{ $apartment->longitude ?? 31.2357 }};
+
+        const map = L.map('apartmentMap').setView([lat, lng], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+
+        L.marker([lat, lng]).addTo(map)
+            .bindPopup("<b>{{ addslashes($apartment->title) }}</b><br>{{ addslashes($apartment->address) }}")
+            .openPopup();
     });
 </script>
 @endpush

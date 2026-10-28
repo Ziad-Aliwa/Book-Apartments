@@ -69,7 +69,16 @@ class BookingController extends Controller
             }
 
             $days = now()->parse($request->start_date)->diffInDays(now()->parse($request->end_date)) + 1;
-            $total = $days * $apartment->price_per_night;
+            $subtotal = $days * $apartment->price_per_night;
+
+            $discountPercent = 0;
+            if ($days >= 28 && $apartment->monthly_discount > 0) {
+                $discountPercent = $apartment->monthly_discount;
+            } elseif ($days >= 7 && $apartment->weekly_discount > 0) {
+                $discountPercent = $apartment->weekly_discount;
+            }
+            $discountAmount = ($subtotal * $discountPercent) / 100;
+            $total = max(0, $subtotal - $discountAmount);
 
             return Booking::create([
                 'user_id' => Auth::id(),
@@ -77,6 +86,7 @@ class BookingController extends Controller
                 'start_date' => $request->start_date,
                 'end_date' => $request->end_date,
                 'total_price' => $total,
+                'discount_amount' => $discountAmount,
                 'payment_status' => 'unpaid',
                 'status' => 'pending',
                 'payment_deadline' => now()->addDays(2),
@@ -147,12 +157,22 @@ class BookingController extends Controller
         }
 
         $days = now()->parse($request->start_date)->diffInDays(now()->parse($request->end_date)) + 1;
-        $total = $days * $apartment->price_per_night;
+        $subtotal = $days * $apartment->price_per_night;
+
+        $discountPercent = 0;
+        if ($days >= 28 && $apartment->monthly_discount > 0) {
+            $discountPercent = $apartment->monthly_discount;
+        } elseif ($days >= 7 && $apartment->weekly_discount > 0) {
+            $discountPercent = $apartment->weekly_discount;
+        }
+        $discountAmount = ($subtotal * $discountPercent) / 100;
+        $total = max(0, $subtotal - $discountAmount);
 
         $booking->update([
             'start_date' => $request->start_date,
             'end_date' => $request->end_date,
             'total_price' => $total,
+            'discount_amount' => $discountAmount,
         ]);
 
         return redirect()->route('bookings.index')->with('success', 'Booking updated successfully.');

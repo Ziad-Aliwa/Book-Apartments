@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <title>@yield('title', 'Apartment Booking Platform') - Book Apartments</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -12,6 +13,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <!-- Flatpickr CSS for interactive datepicker -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <!-- Leaflet Maps CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
     <style>
         body {
@@ -54,6 +57,35 @@
         .star-rating {
             color: #ffc107;
         }
+
+        .wishlist-btn {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.15s ease, background 0.15s ease;
+        }
+
+        .wishlist-btn:hover {
+            transform: scale(1.1);
+            background: #ffffff;
+        }
+
+        .wishlist-btn.active i {
+            color: #dc3545;
+        }
+
+        .map-container {
+            height: 350px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #dee2e6;
+        }
     </style>
     @stack('styles')
 </head>
@@ -77,13 +109,23 @@
                     </li>
                     @auth
                         <li class="nav-item">
+                            <a class="nav-link" href="{{ route('wishlists.index') }}">
+                                <i class="bi bi-heart me-1"></i>Wishlist
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ route('messages.index') }}">
+                                <i class="bi bi-chat-dots me-1"></i>Messages
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link" href="{{ route('bookings.index') }}">
                                 <i class="bi bi-calendar2-check me-1"></i>My Bookings
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="{{ route('dashboard.owner') }}">
-                                <i class="bi bi-speedometer2 me-1"></i>Owner Dashboard
+                                <i class="bi bi-speedometer2 me-1"></i>Host Dashboard
                             </a>
                         </li>
                         <li class="nav-item">
@@ -138,7 +180,9 @@
                                 <i class="bi bi-person-circle me-1"></i>{{ Auth::user()->name }}
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end shadow">
-                                <li><a class="dropdown-item" href="{{ route('dashboard.owner') }}"><i class="bi bi-grid me-2"></i>Dashboard</a></li>
+                                <li><a class="dropdown-item" href="{{ route('dashboard.owner') }}"><i class="bi bi-grid me-2"></i>Host Dashboard</a></li>
+                                <li><a class="dropdown-item" href="{{ route('wishlists.index') }}"><i class="bi bi-heart me-2"></i>My Wishlist</a></li>
+                                <li><a class="dropdown-item" href="{{ route('messages.index') }}"><i class="bi bi-chat-dots me-2"></i>Inbox Messages</a></li>
                                 <li><a class="dropdown-item" href="{{ route('bookings.index') }}"><i class="bi bi-ticket-perforated me-2"></i>My Bookings</a></li>
                                 <li><a class="dropdown-item" href="{{ route('payments.unpaid') }}"><i class="bi bi-wallet2 me-2"></i>Unpaid Bills</a></li>
                                 <li><hr class="dropdown-divider"></li>
@@ -204,6 +248,46 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Flatpickr JS -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Global AJAX Wishlist Script -->
+    <script>
+        function toggleWishlist(apartmentId, buttonElement) {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            fetch(`/wishlists/${apartmentId}/toggle`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                }
+            })
+            .then(res => {
+                if (res.status === 401) {
+                    window.location.href = "{{ route('login') }}";
+                    return;
+                }
+                return res.json();
+            })
+            .then(data => {
+                if (!data) return;
+                const icon = buttonElement.querySelector('i');
+                if (data.favorited) {
+                    buttonElement.classList.add('active');
+                    icon.classList.remove('bi-heart');
+                    icon.classList.add('bi-heart-fill');
+                    icon.classList.add('text-danger');
+                } else {
+                    buttonElement.classList.remove('active');
+                    icon.classList.remove('bi-heart-fill');
+                    icon.classList.remove('text-danger');
+                    icon.classList.add('bi-heart');
+                }
+            })
+            .catch(err => console.error('Wishlist error:', err));
+        }
+    </script>
     @stack('scripts')
 </body>
 

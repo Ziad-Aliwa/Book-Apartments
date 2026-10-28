@@ -37,6 +37,21 @@ class ApartmentController extends Controller
             $query->where('price_per_night', '<=', $request->max_price);
         }
 
+        // Guests & Bedrooms filtering
+        if ($request->filled('guests')) {
+            $query->where('max_guests', '>=', (int) $request->guests);
+        }
+        if ($request->filled('bedrooms')) {
+            $query->where('bedrooms', '>=', (int) $request->bedrooms);
+        }
+
+        // Amenities filtering
+        if ($request->filled('amenities') && is_array($request->amenities)) {
+            foreach ($request->amenities as $amenity) {
+                $query->whereJsonContains('amenities', $amenity);
+            }
+        }
+
         // Availability dates filtering
         if ($request->filled('check_in') && $request->filled('check_out')) {
             $checkIn = $request->check_in;

@@ -3,11 +3,15 @@
 use App\Http\Controllers\AdminApartmentController;
 use App\Http\Controllers\ApartmentController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\CalendarController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\MessageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PaymentsController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\WishlistController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -29,6 +33,7 @@ Route::prefix('apartments')->name('apartments.')->group(function () {
     Route::get('/', [ApartmentController::class, 'index'])->name('index');
     Route::get('/all', [ApartmentController::class, 'all_apartment'])->name('all_apartment');
     Route::get('/{id}', [ApartmentController::class, 'show'])->name('show')->whereNumber('id');
+    Route::get('/{apartment}/calendar.ics', [CalendarController::class, 'export'])->name('calendar_ics');
 });
 
 // Apartments Authenticated Routes
@@ -41,14 +46,29 @@ Route::prefix('apartments')->name('apartments.')->middleware('auth')->group(func
     Route::delete('/{apartment}/images/{image}', [ApartmentController::class, 'destroyImage'])->name('destroy_image');
 });
 
-// Owner Dashboard & Received bookings
+// Authenticated User Features
 Route::middleware('auth')->group(function () {
+    // Owner Dashboard & Received bookings
     Route::get('/dashboard', [DashboardController::class, 'owner'])->name('dashboard.owner');
     Route::get('/my-apartments/bookings', [ApartmentController::class, 'myApartmentsWithBookings'])->name('apartments.my_bookings');
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark_all_read');
+
+    // Wishlist (Favorites)
+    Route::get('/wishlists', [WishlistController::class, 'index'])->name('wishlists.index');
+    Route::post('/wishlists/{apartment}/toggle', [WishlistController::class, 'toggle'])->name('wishlists.toggle');
+
+    // Messages / Chat
+    Route::get('/messages', [MessageController::class, 'index'])->name('messages.index');
+    Route::post('/messages/start/{apartment}', [MessageController::class, 'start'])->name('messages.start');
+    Route::get('/messages/{conversation}', [MessageController::class, 'show'])->name('messages.show');
+    Route::post('/messages/{conversation}', [MessageController::class, 'store'])->name('messages.store');
+
+    // Invoices
+    Route::get('/bookings/{booking}/invoice', [InvoiceController::class, 'show'])->name('bookings.invoice');
+    Route::get('/bookings/{booking}/invoice/download', [InvoiceController::class, 'download'])->name('bookings.invoice.download');
 
     // Reviews
     Route::post('/reviews', [ReviewController::class, 'store'])->name('reviews.store');

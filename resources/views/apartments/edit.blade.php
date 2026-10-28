@@ -24,6 +24,23 @@
                             <input type="text" name="address" id="address" class="form-control" value="{{ old('address', $apartment->address) }}" required>
                         </div>
 
+                        <!-- Capacity & Rooms -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <label for="max_guests" class="form-label fw-bold">Max Guests</label>
+                                <input type="number" min="1" max="50" name="max_guests" id="max_guests" class="form-control" value="{{ old('max_guests', $apartment->max_guests ?? 2) }}" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="bedrooms" class="form-label fw-bold">Bedrooms</label>
+                                <input type="number" min="0" max="20" name="bedrooms" id="bedrooms" class="form-control" value="{{ old('bedrooms', $apartment->bedrooms ?? 1) }}" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="bathrooms" class="form-label fw-bold">Bathrooms</label>
+                                <input type="number" min="0" max="20" name="bathrooms" id="bathrooms" class="form-control" value="{{ old('bathrooms', $apartment->bathrooms ?? 1) }}" required>
+                            </div>
+                        </div>
+
+                        <!-- Pricing & Discounts -->
                         <div class="row g-3 mb-3">
                             <div class="col-md-4">
                                 <label for="price_per_night" class="form-label fw-bold">Price per Night ($) <span class="text-danger">*</span></label>
@@ -33,10 +50,30 @@
                                 </div>
                             </div>
                             <div class="col-md-4">
+                                <label for="weekly_discount" class="form-label fw-bold">Weekly Discount (%)</label>
+                                <div class="input-group">
+                                    <input type="number" min="0" max="90" name="weekly_discount" id="weekly_discount" class="form-control" value="{{ old('weekly_discount', $apartment->weekly_discount ?? 0) }}">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                                <small class="text-muted" style="font-size: 0.75rem;">7+ nights discount</small>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="monthly_discount" class="form-label fw-bold">Monthly Discount (%)</label>
+                                <div class="input-group">
+                                    <input type="number" min="0" max="90" name="monthly_discount" id="monthly_discount" class="form-control" value="{{ old('monthly_discount', $apartment->monthly_discount ?? 0) }}">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                                <small class="text-muted" style="font-size: 0.75rem;">28+ nights discount</small>
+                            </div>
+                        </div>
+
+                        <!-- Availability Window -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
                                 <label for="available_from" class="form-label fw-bold">Available From <span class="text-danger">*</span></label>
                                 <input type="date" name="available_from" id="available_from" class="form-control" value="{{ old('available_from', $apartment->available_from) }}" required>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label for="available_to" class="form-label fw-bold">Available To <span class="text-danger">*</span></label>
                                 <input type="date" name="available_to" id="available_to" class="form-control" value="{{ old('available_to', $apartment->available_to) }}" required>
                             </div>
@@ -45,6 +82,48 @@
                         <div class="mb-3">
                             <label for="description" class="form-label fw-bold">Description</label>
                             <textarea name="description" id="description" rows="4" class="form-control">{{ old('description', $apartment->description) }}</textarea>
+                        </div>
+
+                        <!-- Amenities Selection -->
+                        <div class="mb-4 p-3 bg-light rounded-3 border">
+                            <label class="form-label fw-bold d-block mb-2">
+                                <i class="bi bi-stars text-warning me-1"></i>Amenities Provided
+                            </label>
+                            @php
+                                $amenitiesList = [
+                                    'wifi' => 'Fast Wi-Fi',
+                                    'ac' => 'Air Conditioning',
+                                    'kitchen' => 'Equipped Kitchen',
+                                    'parking' => 'Free Parking',
+                                    'pool' => 'Swimming Pool',
+                                    'tv' => 'Smart TV',
+                                    'elevator' => 'Elevator',
+                                    'workspace' => 'Dedicated Workspace',
+                                    'washing_machine' => 'Washing Machine',
+                                ];
+                                $currentAmenities = (array) ($apartment->amenities ?? []);
+                            @endphp
+                            <div class="row row-cols-2 row-cols-md-3 g-2">
+                                @foreach($amenitiesList as $key => $name)
+                                    <div class="col">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="amenities[]" value="{{ $key }}" id="amenity_{{ $key }}" {{ in_array($key, $currentAmenities) ? 'checked' : '' }}>
+                                            <label class="form-check-label small" for="amenity_{{ $key }}">{{ $name }}</label>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <!-- Location Map Pin Picker -->
+                        <div class="mb-4 p-3 bg-light rounded-3 border">
+                            <label class="form-label fw-bold d-block mb-1">
+                                <i class="bi bi-geo-alt-fill text-danger me-1"></i>Pin Exact Location on Map
+                            </label>
+                            <small class="text-muted d-block mb-2">Click anywhere on the map or drag the marker to adjust coordinates.</small>
+                            <div id="pickerMap" class="map-container mb-2"></div>
+                            <input type="hidden" name="latitude" id="input_latitude" value="{{ $apartment->latitude ?? 30.0444 }}">
+                            <input type="hidden" name="longitude" id="input_longitude" value="{{ $apartment->longitude ?? 31.2357 }}">
                         </div>
 
                         <!-- Current Photos Gallery -->
@@ -99,3 +178,35 @@
         </div>
     </div>
 @endsection
+
+@push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const defaultLat = {{ $apartment->latitude ?? 30.0444 }};
+        const defaultLng = {{ $apartment->longitude ?? 31.2357 }};
+
+        const map = L.map('pickerMap').setView([defaultLat, defaultLng], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+
+        let marker = L.marker([defaultLat, defaultLng], { draggable: true }).addTo(map);
+
+        function updateCoords(lat, lng) {
+            document.getElementById('input_latitude').value = lat.toFixed(6);
+            document.getElementById('input_longitude').value = lng.toFixed(6);
+        }
+
+        marker.on('dragend', function (e) {
+            const position = marker.getLatLng();
+            updateCoords(position.lat, position.lng);
+        });
+
+        map.on('click', function (e) {
+            marker.setLatLng(e.latlng);
+            updateCoords(e.latlng.lat, e.latlng.lng);
+        });
+    });
+</script>
+@endpush

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Storage;
@@ -18,11 +19,28 @@ class Apartment extends Model
         'title',
         'description',
         'address',
+        'latitude',
+        'longitude',
         'price_per_night',
+        'weekly_discount',
+        'monthly_discount',
+        'bedrooms',
+        'bathrooms',
+        'max_guests',
+        'amenities',
         'available_from',
         'available_to',
         'admin_approve',
         'status',
+    ];
+
+    protected $casts = [
+        'amenities' => 'array',
+        'latitude' => 'float',
+        'longitude' => 'float',
+        'weekly_discount' => 'float',
+        'monthly_discount' => 'float',
+        'price_per_night' => 'float',
     ];
 
     protected $appends = ['cover_url', 'average_rating', 'reviews_count'];
@@ -52,6 +70,20 @@ class Apartment extends Model
         return $this->hasMany(Review::class)->latest();
     }
 
+    public function favoritedBy(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'wishlists')->withTimestamps();
+    }
+
+    public function isFavoritedBy(?User $user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        return $this->favoritedBy()->where('user_id', $user->id)->exists();
+    }
+
     public function getCoverUrlAttribute(): string
     {
         $cover = $this->images->firstWhere('is_cover', true) ?? $this->images->first();
@@ -59,7 +91,6 @@ class Apartment extends Model
             return Storage::url($cover->image_path);
         }
 
-        // Return a clean stylish placeholder SVG if no image uploaded
         return 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80';
     }
 
